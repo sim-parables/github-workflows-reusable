@@ -16,7 +16,7 @@ on:
         type: string
 
     secrets:
-      GCP_IMPERSONATE_SERVICE)ACCOUNT_EMAIL:
+      GCP_IMPERSONATE_SERVICE_ACCOUNT_EMAIL:
         required: true
       GCP_PROJECT:
         required: true

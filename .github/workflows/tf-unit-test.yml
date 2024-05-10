@@ -22,6 +22,11 @@ permissions:
   contents: read # Needed to clone repo
   actions: read # Potentially needed for private repositories (see https://github.com/github/codeql-action/issues/2117)
 
+env:
+  TF_VAR_GITHUB_REPOSITORY_OWNER: "${{ github.repository_owner }}"
+  TF_VAR_GITHUB_REPOSITORY: "${{ github.repository }}"
+  TF_VAR_GITHUB_REF: "${{ github.ref }}"
+
 jobs:
   reusable-unit-tests:
     name: 'Terraform Unit Tests'

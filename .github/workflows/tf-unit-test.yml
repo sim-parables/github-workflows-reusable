@@ -8,6 +8,10 @@ on:
       ACT_MODE:
         required: true
         type: boolean
+      
+      SKIP_CHECKS:
+        required: false
+        type: string
      
     secrets:
       TF_API_TOKEN:
@@ -56,7 +60,7 @@ jobs:
       uses: bridgecrewio/checkov-action@master
       with: 
         framework: terraform
-        skip_check: CKV_AWS_273
+        skip_check: ${{ inputs.SKIP_CHECKS }}
 
     # Upload results to GitHub Advanced Security
     - name: Upload SARIF file

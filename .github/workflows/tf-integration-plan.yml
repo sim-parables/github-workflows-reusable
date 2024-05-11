@@ -8,6 +8,10 @@ on:
       ACT_MODE:
         required: true
         type: boolean
+      targets:
+        required: false
+        type: string
+        default: null
     
     secrets:
       GCP_IMPERSONATE_SERVICE_ACCOUNT_EMAIL:
@@ -99,7 +103,19 @@ jobs:
       id: tfplan
       run: |
         export exitcode=0
-        terraform plan -detailed-exitcode -no-color -out tfplan || export exitcode=$?
+        if [ "${{ inputs.targets }}" == "all" ]
+        then
+          terraform plan -detailed-exitcode -no-color -out tfplan || export exitcode=$?
+        else
+          command_targets=""
+          targets=($(echo "${{ inputs.targets }}" | tr ',' '\n'))
+          for t in ${targets[@]}
+          do
+            command_targets+=" -target \"$t\""
+          done
+
+          terraform plan $command_targets -detailed-exitcode -no-color -out tfplan || export exitcode=$?
+        fi
 
         echo "exitcode=$exitcode" >> $GITHUB_OUTPUT
         

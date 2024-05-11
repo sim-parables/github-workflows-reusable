@@ -6,6 +6,10 @@ on:
       ACT_MODE:
         required: true
         type: boolean
+      targets:
+        required: false
+        type: string
+        default: null
     
     secrets:
       GCP_IMPERSONATE_SERVICE)ACCOUNT_EMAIL:
@@ -31,6 +35,7 @@ env:
   TF_VAR_GITHUB_REPOSITORY_OWNER: "${{ github.repository_owner }}"
   TF_VAR_GITHUB_REPOSITORY: "${{ github.repository }}"
   TF_VAR_GITHUB_REF: "${{ github.ref }}"
+  TF_VAR_GITHUB_ENV: production
 
 jobs:
   reusable-dispatch-apply:
@@ -64,4 +69,17 @@ jobs:
       run: terraform init
 
     - name: Terraform Apply
-      run: terraform apply --auto-approve
+      run: |
+        if [ "${{ inputs.targets }}" == "all" ]
+        then
+          terraform apply --auto-approve
+        else
+          command_targets=""
+          targets=($(echo "${{ inputs.targets }}" | tr ',' '\n'))
+          for t in ${targets[@]}
+          do
+            command_targets+=" -target \"$t\""
+          done
+
+          terraform apply --auto-approve $command_targets
+        fi

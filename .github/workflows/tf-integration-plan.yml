@@ -109,9 +109,15 @@ jobs:
       run: |
         for i in $env_vars; do
           i=$(echo $i | sed 's/=.*//g')=$(echo ${i#*=} | base64 -di | base64 -di)
-          echo ${i#*=}
+          echo ::add-mask::${i#*=}
           printf '%s\n' "$i" >> $GITHUB_ENV
         done
+    
+    - name: Validate Environment Variables
+      run: |
+        # Secrets are now available as masked environment variable.
+        echo $TF_VAR_GITHUB_REPOSITORY_OWNER # or ${{ env.TF_VAR_GITHUB_REPOSITORY_OWNER }}
+        echo $TF_VAR_GITHUB_REPOSITORY # or ${{ env.TF_VAR_GITHUB_REPOSITORY }}
     
     - name: Configure GCP Credentials - Github Runner
       uses: 'google-github-actions/auth@v2'

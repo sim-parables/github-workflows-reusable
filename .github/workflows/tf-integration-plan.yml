@@ -103,6 +103,19 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
     
+    - name: Prelim Environment Variables Validation
+      env:
+        env_vars: ${{ secrets.env_variables }}
+      run: |
+        for i in $env_vars; do
+          echo $i
+          echo $(echo $i | sed 's/=.*//g')=$(echo ${i#*=} | base64 -di | base64 -di)
+          
+          i=$(echo $i | sed 's/=.*//g')=$(echo ${i#*=} | base64 -di | base64 -di)
+          echo ::add-mask::${i#*=}
+          echo '%s\n' "$i"
+        done
+    
     - name: Decode Environment Variables
       env:
         env_vars: ${{ secrets.env_variables }}
@@ -116,8 +129,8 @@ jobs:
     - name: Validate Environment Variables
       run: |
         # Secrets are now available as masked environment variable.
-        echo $TF_VAR_GITHUB_REPOSITORY_OWNER # or ${{ env.TF_VAR_GITHUB_REPOSITORY_OWNER }}
-        echo $TF_VAR_GITHUB_REPOSITORY # or ${{ env.TF_VAR_GITHUB_REPOSITORY }}
+        echo " $TF_VAR_GITHUB_REPOSITORY_OWNER or ${{ env.TF_VAR_GITHUB_REPOSITORY_OWNER }}"
+        echo " $TF_VAR_GITHUB_REPOSITORY or ${{ env.TF_VAR_GITHUB_REPOSITORY }}"
     
     - name: Configure GCP Credentials - Github Runner
       uses: 'google-github-actions/auth@v2'

@@ -78,9 +78,11 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
     
-    - name: Decode credentials as environment variables
+    - name: Decode Environment Variables
+      env:
+        env_vars: ${{ secrets.env_variables }}
       run: |
-        for i in ${{ secrets.ENV_VARIABLES }}; do
+        for i in $env_vars; do
           i=$(echo $i | sed 's/=.*//g')=$(echo ${i#*=} | base64 -di | base64 -di)
           echo ${i#*=}
           printf '%s\n' "$i" >> $GITHUB_ENV

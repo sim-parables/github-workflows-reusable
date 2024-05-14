@@ -15,13 +15,13 @@ on:
           Terraform Plan Artifact Path
         required: false
         type: string
-        default: ""
+        default: ''
       TF_PLAN_NAME:
         description: |
           Terraform Plan Artifact Name 
         required: false
         type: string
-        default: ""
+        default: ''
       mask:
         description: |
           Flag to mask environment variables

@@ -10,8 +10,29 @@ on:
           For running Github Action Workflows locally with Nektos act
         required: true
         type: boolean
+      mask:
+        description: |
+          Flag to mask environment variables
+        required: false
+        type: boolean
+        default: true
     
     secrets:
+      env_variables:
+        description: |
+          Passing ENV Variables from parent level workflow to reusable workflow
+          https://github.com/orgs/community/discussions/26671#discussioncomment-6776498
+
+          Possible ENV Variables include
+          secrets:
+            env_variables:
+              TF_VAR_WIF_ID="$\{{ github.run_id}}-$\{{github.run_attempt}}"
+              TF_VAR_GITHUB_REPOSITORY_OWNER="$\{{ github.repository_owner }}"
+              TF_VAR_GITHUB_REPOSITORY="$\{{ github.repository }}"
+              TF_VAR_GITHUB_REF="$\{{ github.ref }}"
+              TF_VAR_GITHUB_ENV=production
+
+        required: false
       GOOGLE_IMPERSONATE_SERVICE_ACCOUNT_EMAIL:
         description: |
           Google Cloud Service Account Impersonator for authentication
@@ -57,6 +78,19 @@ jobs:
     # Checkout the repository to the GitHub Actions runner
     - name: Checkout
       uses: actions/checkout@v4
+    
+    - name: Decode Environment Variables
+      env:
+        env_vars: ${{ secrets.env_variables }}
+      run: |
+        for i in $env_vars; do
+          i=$(echo $i | sed 's/=.*//g')=$(echo ${i#*=} | base64 -di | base64 -di)
+          if ${{ inputs.mask }}
+          then
+            echo ::add-mask::${i#*=}
+          fi
+          printf '%s\n' "$i" >> $GITHUB_ENV
+        done
     
     - name: Configure GCP Credentials - Github Runner
       uses: 'google-github-actions/auth@v2'

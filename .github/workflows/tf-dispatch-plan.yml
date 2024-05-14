@@ -18,6 +18,12 @@ on:
         required: false
         type: string
         default: null
+      mask:
+        description: |
+          Flag to mask environment variables
+        required: false
+        type: boolean
+        default: true
     
     secrets:
       env_variables:
@@ -86,7 +92,10 @@ jobs:
       run: |
         for i in $env_vars; do
          i=$(echo $i | sed 's/=.*//g')=$(echo ${i#*=} | base64 -di | base64 -di)
-          echo ::add-mask::${i#*=}
+          if [ ${{ inputs.mask }} ] 
+          then
+            echo ::add-mask::${i#*=}
+          fi
           printf '%s\n' "$i" >> $GITHUB_ENV
         done
     

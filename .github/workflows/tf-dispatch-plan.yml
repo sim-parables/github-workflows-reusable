@@ -1,5 +1,3 @@
-# Original Work: https://github.com/Azure-Samples/terraform-github-actions/blob/main/.github/workflows/tf-plan-apply.yml
-
 name: '[Reusable|Dispatch] Terraform Read'
 
 on:
@@ -24,6 +22,18 @@ on:
         required: false
         type: boolean
         default: true
+      token_lifetime:
+        description: |
+          AWS STS Token Lifetime in seconds
+        required: false
+        type: number
+        default: 1200
+      token_retries:
+        description: |
+          AWS STS Token request retry attempts
+        required: false
+        type: number
+        default: 3
     
     secrets:
       env_variables:
@@ -34,28 +44,27 @@ on:
           Possible ENV Variables include
           secrets:
             env_variables:
-              TF_VAR_WIF_ID="$\{{ github.run_id}}-$\{{github.run_attempt}}"
               TF_VAR_GITHUB_REPOSITORY_OWNER="$\{{ github.repository_owner }}"
               TF_VAR_GITHUB_REPOSITORY="$\{{ github.repository }}"
               TF_VAR_GITHUB_REF="$\{{ github.ref }}"
               TF_VAR_GITHUB_ENV=production
 
         required: false
-      GOOGLE_IMPERSONATE_SERVICE_ACCOUNT_EMAIL:
+      AWS_CLIENT_ID:
         description: |
-          Google Cloud Service Account Impersonator for authentication
+          AWS Service Account Client ID for authentication
         required: true
-      GOOGLE_PROJECT:
+      AWS_CLIENT_SECRET:
         description: |
-          Google Cloud Project ID
+          AWS Service Account Client Secret for Authentication (when running locally)
         required: true
-      GOOGLE_WORKLOAD_IDENTITY_PROVIDER:
+      AWS_REGION:
         description: |
-          Google Cloud Workload Identity Federation Provider Member ID
+          AWS Account Region
         required: false
-      GOOGLE_OAUTH_ACCESS_TOKEN:
+      AWS_ROLE_TO_ASSUME:
         description: |
-          Google Cloud OAauth2 Access Token
+          AWS role to assume when asking for Security Token Service (STS) to provide a set of temporary credentials
         required: false
       TF_API_TOKEN:
         description: |
@@ -66,11 +75,6 @@ on:
 permissions:
   id-token: write
   contents: read
-
-env:
-  GOOGLE_PROJECT: "${{ secrets.GOOGLE_PROJECT }}"
-  GOOGLE_OAUTH_ACCESS_TOKEN: "${{ secrets.GOOGLE_OAUTH_ACCESS_TOKEN }}"
-  TF_VAR_IMPERSONATE_SERVICE_ACCOUNT_EMAIL: "${{ secrets.GOOGLE_IMPERSONATE_SERVICE_ACCOUNT_EMAIL }}"
 
 jobs:
   reusable-dispatch-plan:
@@ -91,7 +95,7 @@ jobs:
         env_vars: ${{ secrets.env_variables }}
       run: |
         for i in $env_vars; do
-         i=$(echo $i | sed 's/=.*//g')=$(echo ${i#*=} | base64 -di | base64 -di)
+          i=$(echo $i | sed 's/=.*//g')=$(echo ${i#*=} | base64 -di | base64 -di)
           if ${{ inputs.mask }}
           then
             echo ::add-mask::${i#*=}
@@ -99,12 +103,17 @@ jobs:
           printf '%s\n' "$i" >> $GITHUB_ENV
         done
     
-    - name: Configure GCP Credentials - Github Runner
-      uses: 'google-github-actions/auth@v2'
-      if: ${{ !inputs.ACT_MODE }}
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
       with:
-        service_account: "${{ secrets.GOOGLE_IMPERSONATE_SERVICE_ACCOUNT_EMAIL }}"
-        workload_identity_provider: "${{ secrets.GOOGLE_WORKLOAD_IDENTITY_PROVIDER }}"
+        aws-access-key-id: ${{ secrets.AWS_CLIENT_ID }}
+        aws-secret-access-key: ${{ !!github.events.act && secrets.AWS_CLIENT_SECRET || null }}
+        aws-region: ${{ secrets.AWS_REGION }}
+        role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+        role-duration-seconds: ${{ inputs.token_lifetime }}
+        role-skip-session-tagging: true
+        mask-aws-account-id: true
+        retry-max-attempts: ${{ inputs.token_retries }}
 
     # Install the latest version of the Terraform CLI
     - name: Setup Terraform

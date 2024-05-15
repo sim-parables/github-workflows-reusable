@@ -8,12 +8,32 @@ on:
       ACT_MODE:
         required: true
         type: boolean
+      mask:
+        description: |
+          Flag to mask environment variables
+        required: false
+        type: boolean
+        default: true
       
       SKIP_CHECKS:
         required: false
         type: string
      
     secrets:
+      env_variables:
+        description: |
+          Passing ENV Variables from parent level workflow to reusable workflow
+          https://github.com/orgs/community/discussions/26671#discussioncomment-6776498
+
+          Possible ENV Variables include
+          secrets:
+            env_variables:
+              TF_VAR_GITHUB_REPOSITORY_OWNER="$\{{ github.repository_owner }}"
+              TF_VAR_GITHUB_REPOSITORY="$\{{ github.repository }}"
+              TF_VAR_GITHUB_REF="$\{{ github.ref }}"
+              TF_VAR_GITHUB_ENV=production
+
+        required: false
       TF_API_TOKEN:
         required: true
 
@@ -21,12 +41,6 @@ permissions:
   security-events: write # Needed to upload-sarif
   contents: read # Needed to clone repo
   actions: read # Potentially needed for private repositories (see https://github.com/github/codeql-action/issues/2117)
-
-env:
-  TF_VAR_GITHUB_REPOSITORY_OWNER: "${{ github.repository_owner }}"
-  TF_VAR_GITHUB_REPOSITORY: "${{ github.repository }}"
-  TF_VAR_GITHUB_REF: "${{ github.ref }}"
-  TF_VAR_GITHUB_ENV: production
 
 jobs:
   reusable-unit-tests:
@@ -41,6 +55,19 @@ jobs:
     # Checkout the repository to the GitHub Actions runner
     - name: Checkout
       uses: actions/checkout@v4
+    
+    - name: Decode Environment Variables
+      env:
+        env_vars: ${{ secrets.env_variables }}
+      run: |
+        for i in $env_vars; do
+          i=$(echo $i | sed 's/=.*//g')=$(echo ${i#*=} | base64 -di | base64 -di)
+          if ${{ inputs.mask }}
+          then
+            echo ::add-mask::${i#*=}
+          fi
+          printf '%s\n' "$i" >> $GITHUB_ENV
+        done
 
     # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
     - name: Setup Terraform

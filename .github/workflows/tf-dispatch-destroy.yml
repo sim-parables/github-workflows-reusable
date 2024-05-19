@@ -149,4 +149,4 @@ jobs:
         timeout_minutes: 5
         max_attempts: 3
         retry_on: error
-        command: 'terraform -chdir=test destroy --auto-approve'
+        command: 'terraform refresh && terraform -chdir=test destroy --auto-approve'

@@ -16,6 +16,12 @@ on:
         required: false
         type: boolean
         default: true
+      state_remove:
+        description: |
+          Optional State to remove prior to destroy step
+        required: false
+        type: string
+        default: ''
       token_lifetime:
         description: |
           AWS STS Token Lifetime in seconds
@@ -120,6 +126,15 @@ jobs:
     # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
     - name: Terraform Init
       run: terraform init
+    
+    - name: Terraform State Remove
+      if: ${{ inputs.state_remove != '' }}
+      run: |
+        targets=($(echo "${{ inputs.state_remove }}" | tr ',' '\n'))
+        for t in ${targets[@]}
+        do
+          terraform state rm $t
+        done
     
     # Terraform Destroy
     - name: Terraform Destroy

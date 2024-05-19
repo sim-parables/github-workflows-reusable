@@ -137,7 +137,7 @@ jobs:
         targets=($(echo "${{ steps.archives.outputs.ARCHIVES }},${{ inputs.state_remove }}" | tr ',' '\n'))
         for t in ${targets[@]}
         do
-          if [ $t !== '' ]
+          if [ $t != '' ]
           then
             terraform state rm $t
           fi

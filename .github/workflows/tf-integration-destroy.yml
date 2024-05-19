@@ -133,7 +133,7 @@ jobs:
         targets=($(echo "${{ inputs.state_remove }}" | tr ',' '\n'))
         for t in ${targets[@]}
         do
-          terraform state rm $t
+        terraform state rm "$(echo $t | sed 's/\"/\\\"/g')"
         done
     
     # Terraform Destroy

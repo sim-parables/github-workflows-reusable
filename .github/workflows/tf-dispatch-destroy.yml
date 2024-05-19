@@ -122,14 +122,25 @@ jobs:
 
     - name: Terraform Init
       run: terraform init
+      
+    # Terraform archive_file fails on destroy when source files can't be found
+    # These data.archive_file.this resources need to be removed from state
+    # prior to the destroy activity
+    - name: Archives
+      id: archives
+      run:
+        echo "ARCHIVES=$(terraform state list | grep data.archive_file.this | sed 's/\"/\\\"/g' | paste -s -d, -)" >> $GITHUB_OUTPUT
     
     - name: Terraform State Remove
-      if: ${{ inputs.state_remove != '' }}
+      if: ${{ inputs.state_remove  != '' || steps.archives.outputs.ARCHIVES != '' }}
       run: |
-        targets=($(echo "${{ inputs.state_remove }}" | tr ',' '\n'))
+        targets=($(echo "${{ inputs.state_remove }},${{ steps.archives.outputs.ARCHIVES }}" | tr ',' '\n'))
         for t in ${targets[@]}
         do
-          terraform state rm $t
+          if [ $t !== '' ]
+          then
+            terraform state rm $t
+          fi
         done
 
     - name: Terraform destroy

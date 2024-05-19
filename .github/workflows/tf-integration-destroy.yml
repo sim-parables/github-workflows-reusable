@@ -138,7 +138,7 @@ jobs:
     - name: Terraform State Remove
       if: ${{ inputs.state_remove  != '' || steps.archives.outputs.ARCHIVES != '' }}
       run: |
-        targets=($(echo "${{ inputs.state_remove }},${{ steps.archives.outputs.ARCHIVES }}" | tr ',' '\n'))
+        targets=($(echo "${{ steps.archives.outputs.ARCHIVES }},${{ inputs.state_remove }}" | tr ',' '\n'))
         for t in ${targets[@]}
         do
           if [ $t !== '' ]

@@ -132,8 +132,12 @@ jobs:
     # prior to the destroy activity
     - name: Archives
       id: archives
-      run:
-        echo "ARCHIVES=$(terraform state list | grep data.archive_file.this | sed 's/\"/\\\"/g' | paste -s -d, -)" >> $GITHUB_OUTPUT
+      run: |
+        echo "ARCHIVES=$(
+          terraform state list | 
+          grep 'data.archive_file.this\|null_resource.this' | 
+          sed 's/\"/\\\"/g' | 
+          paste -s -d, -)" >> $GITHUB_OUTPUT
     
     - name: Terraform State Remove
       if: ${{ inputs.state_remove  != '' || steps.archives.outputs.ARCHIVES != '' }}

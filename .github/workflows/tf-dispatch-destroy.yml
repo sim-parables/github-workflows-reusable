@@ -104,7 +104,7 @@ jobs:
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        aws-access-key-id: ${{ secrets.AWS_CLIENT_ID }}
+        aws-access-key-id: ${{ !!inputs.ACT_MODE && secrets.AWS_CLIENT_ID || null }}
         aws-secret-access-key: ${{ !!inputs.ACT_MODE && secrets.AWS_CLIENT_SECRET || null }}
         aws-region: ${{ secrets.AWS_REGION }}
         role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}

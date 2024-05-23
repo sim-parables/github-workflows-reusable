@@ -64,9 +64,9 @@ permissions:
 
 #These environment variables are used by the terraform azure provider to setup OIDD authenticate. 
 env:
-    ARM_USE_OIDC: "${{ inputs.ACT_MODE  && 'true' || 'false' }}"
+    ARM_USE_OIDC: "${{ !!inputs.ACT_MODE  && 'false' || 'true' }}"
     ARM_CLIENT_ID: "${{ secrets.AZURE_CLIENT_ID }}"
-    ARM_CLIENT_SECRET: "${{ inputs.ACT_MODE && secrets.AZURE_CLIENT_SECRET || null }}"
+    ARM_CLIENT_SECRET: "${{ !!inputs.ACT_MODE && secrets.AZURE_CLIENT_SECRET || null }}"
     ARM_SUBSCRIPTION_ID: "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
     ARM_TENANT_ID: "${{ secrets.AZURE_TENANT_ID }}"
 jobs:

@@ -1,0 +1,205 @@
+# Original Work: https://github.com/Azure-Samples/terraform-github-actions/blob/main/.github/workflows/tf-plan-apply.yml
+
+name: '[Reusable] Terraform Plan'
+
+on:
+  workflow_call:
+    inputs:
+      ACT_MODE:
+        description: |
+          For running Github Action Workflows locally with Nektos act
+        required: true
+        type: boolean
+      targets:
+        description: |
+          Specify Terraform resources/modules within the tf scripts to target with the -target command line.
+          The "targets" input is a comma seperated string of possible resources/modules to scope into plan.
+          Example: module.service_account_auth,data.google_project.this,google_iam_workload_identity_pool_provider.this
+        required: false
+        type: string
+        default: null
+      mask:
+        description: |
+          Flag to mask environment variables
+        required: false
+        type: boolean
+        default: true
+
+    secrets:
+      env_variables:
+        description: |
+          Passing ENV Variables from parent level workflow to reusable workflow
+          https://github.com/orgs/community/discussions/26671#discussioncomment-6776498
+
+          Possible ENV Variables include
+          secrets:
+            env_variables:
+              TF_VAR_WIF_ID="$\{{ github.run_id}}-$\{{github.run_attempt}}"
+              TF_VAR_GITHUB_REPOSITORY_OWNER="$\{{ github.repository_owner }}"
+              TF_VAR_GITHUB_REPOSITORY="$\{{ github.repository }}"
+              TF_VAR_GITHUB_REF="$\{{ github.ref }}"
+              TF_VAR_GITHUB_ENV=production
+
+        required: false
+      AZURE_CLIENT_ID:
+        description: |
+          Azure Service Account Client ID for authentication
+        required: true
+      AZURE_CLIENT_SECRET:
+        description: |
+          Azure Service Account Client Secret for Authentication (when running locally)
+        required: true
+      AZURE_SUBSCRIPTION_ID:
+        description: |
+          Azure Subscription ID
+        required: true
+      AZURE_TENANT_ID:
+        description: |
+          Azure Tenant ID
+        required: true
+      TF_API_TOKEN:
+        description: |
+          Terraform.io Access Token
+        required: true
+
+#Special permissions required for OIDC authentication
+permissions:
+  id-token: write
+  contents: read
+
+#These environment variables are used by the terraform azure provider to setup OIDD authenticate. 
+env:
+    ARM_USE_OIDC: "${{ inputs.ACT_MODE  && 'true' || 'false' }}"
+    ARM_CLIENT_ID: "${{ secrets.AZURE_CLIENT_ID }}"
+    ARM_CLIENT_SECRET: "${{ inputs.ACT_MODE && secrets.AZURE_CLIENT_SECRET || null }}"
+    ARM_SUBSCRIPTION_ID: "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+    ARM_TENANT_ID: "${{ secrets.AZURE_TENANT_ID }}"
+
+jobs:
+  reusable-integration-plan:
+    name: 'Terraform Plan'
+    runs-on: ubuntu-latest
+    
+    defaults:
+        run:
+          working-directory: "./test"
+    env:
+      #this is needed since we are running terraform with read-only permissions
+      ARM_SKIP_PROVIDER_REGISTRATION: true
+    
+    outputs:
+      TF_PLAN_EXIT_CODE: "${{ steps.tfplan.outputs.exitcode }}"
+      TF_PLAN_PATH: "${{ steps.tf-plan-upload.outputs.artifact-url }}"
+      TF_PLAN_NAME: "tfplan"
+
+    steps:
+    # Checkout the repository to the GitHub Actions runner
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Decode Environment Variables
+      env:
+        env_vars: ${{ secrets.env_variables }}
+      run: |
+        for i in $env_vars; do
+          i=$(echo $i | sed 's/=.*//g')=$(echo ${i#*=} | base64 -di | base64 -di)
+          if ${{ inputs.mask }} 
+          then
+            echo ::add-mask::${i#*=}
+          fi
+          printf '%s\n' "$i" >> $GITHUB_ENV
+        done
+    
+    # Install the latest version of the Terraform CLI
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+        terraform_wrapper: false
+
+    # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
+    - name: Terraform Init
+      run: terraform init
+
+    # Checks that all Terraform configuration files adhere to a canonical format
+    # Will fail the build if not
+    - name: Terraform Format
+      run: terraform fmt -check
+
+    # Generates an execution plan for Terraform
+    # An exit code of 0 indicated no changes, 1 a terraform failure, 2 there are pending changes.
+    - name: Terraform Plan
+      id: tfplan
+      run: |
+        export exitcode=0
+        if [ "${{ inputs.targets }}" == "all" ]
+        then
+          terraform plan -detailed-exitcode -no-color -out tfplan || export exitcode=$?
+        else
+          command_targets=""
+          targets=($(echo "${{ inputs.targets }}" | tr ',' '\n'))
+          for t in ${targets[@]}
+          do
+            command_targets+=" -target $t"
+          done
+
+          terraform plan $command_targets -detailed-exitcode -no-color -out tfplan || export exitcode=$?
+        fi
+
+        echo "exitcode=$exitcode" >> $GITHUB_OUTPUT
+        
+        if [ $exitcode -eq 1 ]; then
+          echo Terraform Plan Failed!
+          exit 1
+        else 
+          exit 0
+        fi
+        
+    # Save plan to artifacts  
+    - name: Publish Terraform Plan
+      id: tf-plan-upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: tfplan
+        path: test/tfplan
+        
+    # Create string output of Terraform Plan
+    - name: Create String Output
+      id: tf-plan-string
+      run: |
+        TERRAFORM_PLAN=$(terraform show -no-color tfplan)
+        
+        delimiter="$(openssl rand -hex 8)"
+        echo "summary<<${delimiter}" >> $GITHUB_OUTPUT
+        echo "## Terraform Plan Output" >> $GITHUB_OUTPUT
+        echo "<details><summary>Click to expand</summary>" >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        echo '```terraform' >> $GITHUB_OUTPUT
+        echo "$TERRAFORM_PLAN" >> $GITHUB_OUTPUT
+        echo '```' >> $GITHUB_OUTPUT
+        echo "</details>" >> $GITHUB_OUTPUT
+        echo "${delimiter}" >> $GITHUB_OUTPUT
+        
+    # Publish Terraform Plan as task summary
+    - name: Publish Terraform Plan to Task Summary
+      env:
+        SUMMARY: ${{ steps.tf-plan-string.outputs.summary }}
+      run: |
+        echo "$SUMMARY" >> $GITHUB_STEP_SUMMARY
+      
+    # If this is a PR post the changes
+    - name: Push Terraform Output to PR
+      if: ${{ !inputs.ACT_MODE  && github.ref != 'refs/heads/main' }}
+      uses: actions/github-script@v7
+      env:
+        SUMMARY: "${{ steps.tf-plan-string.outputs.summary }}"
+      with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const body = `${process.env.SUMMARY}`;
+            github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+            })

@@ -1,0 +1,145 @@
+# Original Work: https://github.com/Azure-Samples/terraform-github-actions/blob/main/.github/workflows/tf-plan-apply.yml
+
+name: '[Reusable] Terraform Destroy'
+
+on:
+  workflow_call:
+    inputs:
+      ACT_MODE:
+        description: |
+          For running Github Action Workflows locally with Nektos act
+        required: true
+        type: boolean
+      mask:
+        description: |
+          Flag to mask environment variables
+        required: false
+        type: boolean
+        default: true
+      state_remove:
+        description: |
+          Optional State to remove prior to destroy step
+        required: false
+        type: string
+        default: ''
+
+    secrets:
+      env_variables:
+        description: |
+          Passing ENV Variables from parent level workflow to reusable workflow
+          https://github.com/orgs/community/discussions/26671#discussioncomment-6776498
+
+          Possible ENV Variables include
+          secrets:
+            env_variables:
+              TF_VAR_WIF_ID="$\{{ github.run_id}}-$\{{github.run_attempt}}"
+              TF_VAR_GITHUB_REPOSITORY_OWNER="$\{{ github.repository_owner }}"
+              TF_VAR_GITHUB_REPOSITORY="$\{{ github.repository }}"
+              TF_VAR_GITHUB_REF="$\{{ github.ref }}"
+              TF_VAR_GITHUB_ENV=production
+
+        required: false
+      AZURE_CLIENT_ID:
+        description: |
+          Azure Service Account Client ID for authentication
+        required: true
+      AZURE_CLIENT_SECRET:
+        description: |
+          Azure Service Account Client Secret for Authentication (when running locally)
+        required: true
+      AZURE_SUBSCRIPTION_ID:
+        description: |
+          Azure Subscription ID
+        required: true
+      AZURE_TENANT_ID:
+        description: |
+          Azure Tenant ID
+        required: true
+      TF_API_TOKEN:
+        description: |
+          Terraform.io Access Token
+        required: true
+
+#Special permissions required for OIDC authentication
+permissions:
+  id-token: write
+  contents: read
+
+#These environment variables are used by the terraform azure provider to setup OIDD authenticate. 
+env:
+    ARM_USE_OIDC: "${{ inputs.ACT_MODE  && 'true' || 'false' }}"
+    ARM_CLIENT_ID: "${{ secrets.AZURE_CLIENT_ID }}"
+    ARM_CLIENT_SECRET: "${{ inputs.ACT_MODE && secrets.AZURE_CLIENT_SECRET || null }}"
+    ARM_SUBSCRIPTION_ID: "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+    ARM_TENANT_ID: "${{ secrets.AZURE_TENANT_ID }}"
+
+jobs:
+  reusable-integration-destroy:
+    name: 'Terraform Destroy'
+    environment: production
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: "./test"
+
+    steps:
+    # Checkout the repository to the GitHub Actions runner
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Decode Environment Variables
+      env:
+        env_vars: ${{ secrets.env_variables }}
+      run: |
+        for i in $env_vars; do
+          i=$(echo $i | sed 's/=.*//g')=$(echo ${i#*=} | base64 -di | base64 -di)
+          if ${{ inputs.mask }}
+          then
+            echo ::add-mask::${i#*=}
+          fi
+          printf '%s\n' "$i" >> $GITHUB_ENV
+        done
+    
+    # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+    
+    # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
+    - name: Terraform Init
+      run: terraform init
+    
+    # Terraform archive_file fails on destroy when source files can't be found
+    # These data.archive_file.this resources need to be removed from state
+    # prior to the destroy activity
+    - name: Archives
+      id: archives
+      run: |
+        echo "ARCHIVES=$(
+          terraform state list | 
+          grep 'data.archive_file.this\|null_resource.this' | 
+          sed 's/\"/\\\"/g' | 
+          paste -s -d, -)" >> $GITHUB_OUTPUT
+    
+    - name: Terraform State Remove
+      if: ${{ inputs.state_remove  != '' || steps.archives.outputs.ARCHIVES != '' }}
+      run: |
+        targets=($(echo "${{ steps.archives.outputs.ARCHIVES }},${{ inputs.state_remove }}" | tr ',' '\n'))
+        for t in ${targets[@]}
+        do
+          if [ $t != '' ]
+          then
+            terraform state rm $t
+          fi
+        done
+    
+    # Terraform Destroy
+    - name: Terraform Destroy
+      uses: nick-fields/retry@v3
+      with:
+        timeout_minutes: 5
+        max_attempts: 3
+        retry_on: error
+        command: 'terraform -chdir=test destroy --auto-approve'

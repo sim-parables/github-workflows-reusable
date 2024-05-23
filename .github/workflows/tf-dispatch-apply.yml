@@ -1,0 +1,125 @@
+name: '[Reusable|Dispatch] Terraform Apply'
+
+on:
+  workflow_call:
+    inputs:
+      ACT_MODE:
+        description: |
+          For running Github Action Workflows locally with Nektos act
+        required: true
+        type: boolean
+      targets:
+        description: |
+          Specify Terraform resources/modules within the tf scripts to target with the -target command line.
+          The "targets" input is a comma seperated string of possible resources/modules to scope into plan.
+          Example: module.service_account_auth,data.google_project.this,google_iam_workload_identity_pool_provider.this
+        required: false
+        type: string
+        default: null
+      mask:
+        description: |
+          Flag to mask environment variables
+        required: false
+        type: boolean
+        default: true
+    
+    secrets:
+      env_variables:
+        description: |
+          Passing ENV Variables from parent level workflow to reusable workflow
+          https://github.com/orgs/community/discussions/26671#discussioncomment-6776498
+
+          Possible ENV Variables include
+          secrets:
+            env_variables:
+              TF_VAR_GITHUB_REPOSITORY_OWNER="$\{{ github.repository_owner }}"
+              TF_VAR_GITHUB_REPOSITORY="$\{{ github.repository }}"
+              TF_VAR_GITHUB_REF="$\{{ github.ref }}"
+              TF_VAR_GITHUB_ENV=production
+
+        required: false
+      AZURE_CLIENT_ID:
+        description: |
+          Azure Service Account Client ID for authentication
+        required: true
+      AZURE_CLIENT_SECRET:
+        description: |
+          Azure Service Account Client Secret for Authentication (when running locally)
+        required: true
+      AZURE_SUBSCRIPTION_ID:
+        description: |
+          Azure Subscription ID
+        required: true
+      AZURE_TENANT_ID:
+        description: |
+          Azure Tenant ID
+        required: true
+      TF_API_TOKEN:
+        description: |
+          Terraform.io Access Token
+        required: true
+
+#Special permissions required for OIDC authentication
+permissions:
+  id-token: write
+  contents: read
+
+#These environment variables are used by the terraform azure provider to setup OIDD authenticate. 
+env:
+    ARM_USE_OIDC: "${{ inputs.ACT_MODE  && 'true' || 'false' }}"
+    ARM_CLIENT_ID: "${{ secrets.AZURE_CLIENT_ID }}"
+    ARM_CLIENT_SECRET: "${{ inputs.ACT_MODE && secrets.AZURE_CLIENT_SECRET || null }}"
+    ARM_SUBSCRIPTION_ID: "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+    ARM_TENANT_ID: "${{ secrets.AZURE_TENANT_ID }}"
+jobs:
+  reusable-dispatch-apply:
+    name: 'Terraform Apply'
+    runs-on: ubuntu-latest
+    
+    defaults:
+        run:
+          working-directory: "./test"
+
+    steps:
+    # Checkout the repository to the GitHub Actions runner
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Decode Environment Variables
+      env:
+        env_vars: ${{ secrets.env_variables }}
+      run: |
+        for i in $env_vars; do
+          i=$(echo $i | sed 's/=.*//g')=$(echo ${i#*=} | base64 -di | base64 -di)
+          if ${{ inputs.mask }}
+          then
+            echo ::add-mask::${i#*=}
+          fi
+          printf '%s\n' "$i" >> $GITHUB_ENV
+        done
+
+    # Install the latest version of the Terraform CLI
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+        terraform_wrapper: false
+
+    - name: Terraform Init
+      run: terraform init
+
+    - name: Terraform Apply
+      run: |
+        if [ "${{ inputs.targets }}" == "all" ]
+        then
+          terraform apply --auto-approve
+        else
+          command_targets=""
+          targets=($(echo "${{ inputs.targets }}" | tr ',' '\n'))
+          for t in ${targets[@]}
+          do
+            command_targets+=" -target $t"
+          done
+
+          terraform apply --auto-approve $command_targets
+        fi

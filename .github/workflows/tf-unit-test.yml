@@ -14,6 +14,12 @@ on:
         required: false
         type: boolean
         default: true
+      working_directory:
+        description: |
+          Working directory containing Terraform test scripts.
+        required: false
+        type: string
+        default: "./test"
       
       SKIP_CHECKS:
         required: false
@@ -49,7 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
         run:
-          working-directory: "./test"
+          working-directory: "${{ inputs.working_directory }}"
     
     steps:
     # Checkout the repository to the GitHub Actions runner

@@ -20,6 +20,12 @@ on:
         required: false
         type: string
         default: ''
+      working_directory:
+        description: |
+          Working directory containing Terraform test scripts.
+        required: false
+        type: string
+        default: "./test"
     
     secrets:
       env_variables:
@@ -76,7 +82,7 @@ jobs:
     
     defaults:
         run:
-          working-directory: "./test"
+          working-directory: "${{ inputs.working_directory }}"
 
     steps:
     # Checkout the repository to the GitHub Actions runner
@@ -136,4 +142,4 @@ jobs:
         timeout_minutes: 5
         max_attempts: 3
         retry_on: error
-        command: 'terraform -chdir=test destroy --auto-approve'
+        command: 'terraform -chdir=${{ inputs.working_directory }} destroy --auto-approve'

@@ -120,4 +120,4 @@ jobs:
         echo "::add-mask::$(terraform output -raw service_account_application_id)"
         echo "AZURE_CLIENT_ID=$(terraform output -raw service_account_client_id)
         AZURE_CLIENT_SECRET=${{ !!inputs.ACT_MODE && '$(terraform output -raw service_account_client_secret)' || 'null'}}
-        AZURE_APPLICATION_ID=$(terraform output -raw service_account_application_id)" >> $GITHUB_OUTPUT
+        AZURE_APPLICATION_ID=$(terraform output -raw service_account_application_id | base64 -w0 | base64 -w0)" >> $GITHUB_OUTPUT

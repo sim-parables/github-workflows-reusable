@@ -84,7 +84,7 @@ jobs:
       
     defaults:
         run:
-          working-directory: "./test"
+          working-directory: "${{ inputs.working_directory }}"
 
     steps:
     # Checkout the repository to the GitHub Actions runner

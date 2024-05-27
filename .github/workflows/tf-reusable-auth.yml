@@ -74,7 +74,8 @@ env:
     ARM_TENANT_ID: "${{ secrets.AZURE_TENANT_ID }}"
 jobs:
   reusable-auth:
-    name: 'Terraform Apply'
+    name: 'Terraform Authenticate'
+    environment: production
     runs-on: ubuntu-latest
 
     outputs:

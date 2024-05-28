@@ -15,6 +15,10 @@ on:
         description: |
           Azure Service Account Client Application ID for Identity Federation Creation
         value: ${{ jobs.reusable-auth.outputs.AZURE_APPLICATION_ID }}
+      SECURITY_GROUP_ID:
+        description: |
+            Microsoft Entra ID Security Group ID
+        value: ${{ jobs.reusable-auth.outputs.SECURITY_GROUP_ID }}
 
 
     inputs:

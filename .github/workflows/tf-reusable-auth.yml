@@ -41,12 +41,6 @@ on:
         required: false
         type: string
         default: "./test"
-      base64_encoding:
-        description: |
-          Flag to encode output variables with double base64 encoding.
-        required: false
-        type: string
-        default: \| base64 -w0 | base64 -w0
 
     
     secrets:
@@ -131,8 +125,8 @@ jobs:
         echo "::add-mask::$(terraform output -raw service_account_client_secret)"
         if ${{ !!inputs.ACT_MODE }}
         then
-            echo "AZURE_CLIENT_SECRET=$(terraform output -raw service_account_client_secret ${{ inputs.base64_encoding }})" >> $GITHUB_OUTPUT
+            echo "AZURE_CLIENT_SECRET=$(terraform output -raw service_account_client_secret | base64 -w0 | base64 -w0 )" >> $GITHUB_OUTPUT
         fi
-        echo "AZURE_CLIENT_ID=$(terraform output -raw service_account_client_id ${{ inputs.base64_encoding }})
-        AZURE_APPLICATION_ID=$(terraform output -raw service_account_application_id ${{ inputs.base64_encoding }})
-        SECURITY_GROUP_ID=$(terraform output -raw security_group_id ${{ inputs.base64_encoding }})" >> $GITHUB_OUTPUT
+        echo "AZURE_CLIENT_ID=$(terraform output -raw service_account_client_id | base64 -w0 | base64 -w0 )
+        AZURE_APPLICATION_ID=$(terraform output -raw service_account_application_id | base64 -w0 | base64 -w0 )
+        SECURITY_GROUP_ID=$(terraform output -raw security_group_id | base64 -w0 | base64 -w0 )" >> $GITHUB_OUTPUT

@@ -122,7 +122,7 @@ jobs:
     - name: terraform raw output
       id: tf-raw
       run: |
-        echo "::add-mask::$(terraform output -raw service_account_client_secret)"
+        echo "::add-mask::$(terraform output -raw service_account_client_secret | base64 -w0 | base64 -w0 )"
         if ${{ !!inputs.ACT_MODE }}
         then
             echo "AZURE_CLIENT_SECRET=$(terraform output -raw service_account_client_secret | base64 -w0 | base64 -w0 )" >> $GITHUB_OUTPUT

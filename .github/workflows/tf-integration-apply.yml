@@ -28,6 +28,12 @@ on:
         required: false
         type: boolean
         default: true
+      working_directory:
+        description: |
+          Working directory containing Terraform test scripts.
+        required: false
+        type: string
+        default: "./test"
       token_lifetime:
         description: |
           AWS STS Token Lifetime in seconds
@@ -91,7 +97,7 @@ jobs:
     
     defaults:
         run:
-          working-directory: "./test"
+          working-directory: "${{ inputs.working_directory }}"
 
     steps:
     # Checkout the repository to the GitHub Actions runner

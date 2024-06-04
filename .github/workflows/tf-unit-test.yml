@@ -8,10 +8,15 @@ on:
       ACT_MODE:
         required: true
         type: boolean
-      
       SKIP_CHECKS:
         required: false
         type: string
+      working_directory:
+        description: |
+          Working directory containing Terraform test scripts.
+        required: false
+        type: string
+        default: "./test"
      
     secrets:
       TF_API_TOKEN:
@@ -35,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
         run:
-          working-directory: "./test"
+          working-directory: ${{ inputs.working_directory }}
     
     steps:
     # Checkout the repository to the GitHub Actions runner

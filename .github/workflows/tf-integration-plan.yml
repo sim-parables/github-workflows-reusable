@@ -24,6 +24,12 @@ on:
         required: false
         type: boolean
         default: true
+      working_directory:
+        description: |
+          Working directory containing Terraform test scripts.
+        required: false
+        type: string
+        default: "./test"
     
     secrets:
       env_variables:
@@ -94,7 +100,7 @@ jobs:
     
     defaults:
         run:
-          working-directory: "./test"
+          working-directory: ${{ inputs.working_directory }}
     env:
       #this is needed since we are running terraform with read-only permissions
       ARM_SKIP_PROVIDER_REGISTRATION: true
@@ -180,7 +186,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: tfplan
-        path: test/tfplan
+        path: ${{ inputs.working_directory }}/tfplan
         
     # Create string output of Terraform Plan
     - name: Create String Output

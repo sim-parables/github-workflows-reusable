@@ -88,6 +88,10 @@ on:
         description: |
           Azure Databricks Accounts Client Secret with Admin Permissions
         required: true
+      AZURE_DATABRICKS_ACCOUNT_SCIM_TOKEN:
+        description: |
+          Azure Databricks Accounts Identity Workflow Provisioning SCIM Token
+        required: false
 
 #Special permissions required for OIDC authentication
 permissions:
@@ -103,6 +107,8 @@ env:
     ARM_TENANT_ID: "${{ secrets.AZURE_TENANT_ID }}"
     TF_VAR_DATABRICKS_ADMINISTRATOR: "${{ inputs.DATABRICKS_ADMINISTRATOR }}"
     TF_VAR_DATABRICKS_CLI_PROFILE: "${{ inputs.DATABRICKS_PROFILE }}"
+    TF_VAR_DATABRICKS_ACCOUNT_ID: "${{ secrets.AZURE_DATABRICKS_ACCOUNT_ID }}"
+    TF_VAR_DATABRICKS_ACCOUNT_SCIM_TOKEN: "${{ secrets.AZURE_DATABRICKS_ACCOUNT_SCIM_TOKEN }}"
 
 jobs:
   reusable-integration-destroy:

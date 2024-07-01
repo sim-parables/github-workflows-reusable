@@ -10,6 +10,11 @@ on:
           For running Github Action Workflows locally with Nektos act
         required: true
         type: boolean
+      DATABRICKS_ADMINISTRATOR:
+        description: |
+          Databricks Accounts Administrator user account (not for machine access)
+        required: true
+        type: string
       DATABRICKS_PROFILE:
         description: |
           Databricks CLI configuration profile name for Databricks Accounts configuration/credentials

@@ -1,4 +1,4 @@
-# Original work: https://github.com/Azure-Samples/terraform-github-actions/blob/main/.github/workflows/tf-unit-tests.yml
+# Original work: https://github.com/AWS-Samples/terraform-github-actions/blob/main/.github/workflows/tf-unit-tests.yml
 
 name: '[Reusable] Terraform Unit Tests'
 

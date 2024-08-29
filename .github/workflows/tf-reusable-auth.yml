@@ -96,6 +96,6 @@ jobs:
     - name: terraform raw output
       id: tf-raw
       run: |
-        echo "::add-mask::$(terraform output -raw databricks_token | base64 -w0 | base64 -w0 )"
-        echo "AWS_DATABRICKS_WORKSPACE_HOST=$(terraform output -raw databricks_host | base64 -w0 | base64 -w0 )
-        AWS_DATABRICKS_WORKSPACE_TOKEN=$(terraform output -raw databricks_token | base64 -w0 | base64 -w0 )" >> $GITHUB_OUTPUT
+        echo "::add-mask::$(terraform output -raw databricks_access_token | base64 -w0 | base64 -w0 )"
+        echo "AWS_DATABRICKS_WORKSPACE_HOST=$(terraform output -raw databricks_workspace_host | base64 -w0 | base64 -w0 )
+        AWS_DATABRICKS_WORKSPACE_TOKEN=$(terraform output -raw databricks_access_token | base64 -w0 | base64 -w0 )" >> $GITHUB_OUTPUT

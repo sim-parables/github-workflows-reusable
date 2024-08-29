@@ -1,0 +1,101 @@
+name: '[Reusable|Auth] Terraform Create Service Account and Export Client Credentials'
+
+on:
+  workflow_call:
+    outputs:
+      AWS_DATABRICKS_WORKSPACE_HOST:
+        description: |
+          AWS Databricks Workspace Host URL
+        value: ${{ jobs.reusable-auth.outputs.AWS_DATABRICKS_WORKSPACE_HOST }}
+      AWS_DATABRICKS_WORKSPACE_TOKEN:
+        description: |
+          AWS Databricks Workspace Service Principal Token
+        value: ${{ jobs.reusable-auth.outputs.AWS_DATABRICKS_WORKSPACE_TOKEN }}
+
+
+    inputs:
+      mask:
+        description: |
+          Flag to mask environment variables
+        required: false
+        type: boolean
+        default: true
+      working_directory:
+        description: |
+          Working directory containing Terraform test scripts.
+        required: false
+        type: string
+        default: "./test"
+
+    
+    secrets:
+      env_variables:
+        description: |
+          Passing ENV Variables from parent level workflow to reusable workflow
+          https://github.com/orgs/community/discussions/26671#discussioncomment-6776498
+
+          Possible ENV Variables include
+          secrets:
+            env_variables:
+              TF_VAR_GITHUB_REPOSITORY_OWNER="$\{{ github.repository_owner }}"
+              TF_VAR_GITHUB_REPOSITORY="$\{{ github.repository }}"
+              TF_VAR_GITHUB_REF="$\{{ github.ref }}"
+              TF_VAR_GITHUB_ENV=production
+      TF_API_TOKEN:
+        description: |
+          Terraform.io Access Token
+        required: true
+
+#Special permissions required for OIDC authentication
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  reusable-auth:
+    name: 'Terraform Authenticate'
+    environment: production
+    runs-on: ubuntu-latest
+
+    outputs:
+      AWS_DATABRICKS_WORKSPACE_HOST: "${{ steps.tf-raw.outputs.AWS_DATABRICKS_WORKSPACE_HOST }}"
+      AWS_DATABRICKS_WORKSPACE_TOKEN: "${{ steps.tf-raw.outputs.AWS_DATABRICKS_WORKSPACE_TOKEN }}"
+      
+    defaults:
+        run:
+          working-directory: "${{ inputs.working_directory }}"
+
+    steps:
+    # Checkout the repository to the GitHub Actions runner
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Decode Environment Variables
+      env:
+        env_vars: ${{ secrets.env_variables }}
+      run: |
+        for i in $env_vars; do
+          i=$(echo $i | sed 's/=.*//g')=$(echo ${i#*=} | base64 -di | base64 -di)
+          if ${{ inputs.mask }}
+          then
+            echo ::add-mask::${i#*=}
+          fi
+          printf '%s\n' "$i" >> $GITHUB_ENV
+        done
+
+    # Install the latest version of the Terraform CLI
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+        terraform_wrapper: false
+
+    - name: Terraform Init
+      run: terraform init
+
+    - name: terraform raw output
+      id: tf-raw
+      run: |
+        echo "::add-mask::$(terraform output -raw databricks_token | base64 -w0 | base64 -w0 )"
+        echo "AWS_DATABRICKS_WORKSPACE_HOST=$(terraform output -raw databricks_host | base64 -w0 | base64 -w0 )
+        AWS_DATABRICKS_WORKSPACE_TOKEN=$(terraform output -raw databricks_token | base64 -w0 | base64 -w0 )" >> $GITHUB_OUTPUT
